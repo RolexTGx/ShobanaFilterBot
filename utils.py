@@ -40,18 +40,43 @@ class temp(object):
     B_NAME = None
     SETTINGS = {}
 
-async def is_subscribed(bot, query):
-    try:
-        user = await bot.get_chat_member(AUTH_CHANNEL, query.from_user.id)
-    except UserNotParticipant:
-        pass
-    except Exception as e:
-        logger.exception(e)
-    else:
-        if user.status != 'kicked':
-            return True
+from pyrogram.enums import ChatMemberStatus
+from database.users_chats_db import db
 
+JOIN_REQUEST_USERS = set()
+
+async def is_subscribed(user_id: int, client) -> bool:
+    if user_id in JOIN_REQUEST_USERS:
+        return True
+
+    auth_channels = await db.get_auth_channels()
+    for channel in auth_channels:
+        try:
+            member = await client.get_chat_member(channel, user_id)
+            if member.status in [
+                ChatMemberStatus.MEMBER,
+                ChatMemberStatus.ADMINISTRATOR,
+                ChatMemberStatus.OWNER,
+            ]:
+                return True
+        except Exception:
+            continue
     return False
+
+async def create_invite_links(client) -> dict:
+    links = {}
+    auth_channels = await db.get_auth_channels()
+    for channel in auth_channels:
+        try:
+            invite = await client.create_chat_invite_link(
+                channel,
+                creates_join_request=True,
+                name="BotAuthAccess"
+            )
+            links[channel] = invite.invite_link
+        except Exception:
+            continue
+    return links
 
 async def get_poster(query, bulk=False, id=False, file=None):
     if not id:
