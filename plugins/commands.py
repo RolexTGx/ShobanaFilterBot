@@ -259,6 +259,28 @@ async def start(client, message):
         protect_content=True if pre == 'filep' else False,
         )
                     
+def is_admin(user) -> bool:
+    return (
+        user.id in ADMINS or
+        (f"@{user.username}" in ADMINS if user.username else False)
+    )
+
+@Client.on_message(filters.command("fsub") & filters.private)
+async def set_auth_channels(client, message: Message):
+    user = message.from_user
+    if not is_admin(user):
+        return await message.reply("🚫 You are not authorized to use this command.")
+
+    args = message.text.split()[1:]
+    if not args:
+        return await message.reply("Usage: /fsub (channel_id1) (channel_id2) ...")
+
+    try:
+        channels = [int(cid) for cid in args]
+        await db.set_auth_channels(channels)
+        await message.reply(f"✅ AUTH_CHANNELs updated:\n{channels}")
+    except ValueError:
+        await message.reply("❌ Invalid channel IDs. Use numeric Telegram chat IDs.")
 
 @Client.on_message(filters.command('channel') & filters.user(ADMINS))
 async def channel_info(bot, message):
